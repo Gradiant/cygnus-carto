@@ -1,0 +1,147 @@
+From 16ef69dc53c3a8ec72fc89258ffaf718858cce7d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Lorenzo=20Garc=C3=ADa=20Corti=C3=B1as?=
+ <lgcortinas@gradiant.org>
+Date: Thu, 25 May 2017 15:36:08 +0200
+Subject: [PATCH 1/2] Added log to persistRawAggregation.
+
+---
+ .../src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java  | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java b/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java
+index b045269..87329ce 100644
+--- a/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java
++++ b/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java
+@@ -616,6 +616,8 @@ public class NGSICartoDBSink extends NGSISink {
+         LOGGER.info("[" + this.getName() + "] Persisting data at NGSICartoDBSink. Schema (" + schema
+                 + "), Table (" + tableName + "), Data (" + rows + ")");
+         
++        LOGGER.info("Backends: " + backends);
++        
+         try {
+             ((CartoDBBackendImpl) backends.get(schema)).startTransaction();
+             backends.get(schema).insert(schema, tableName, withs, fields, rows);
+-- 
+2.7.4
+
+
+From 67631dadde88bf937968413ab361b73462075ef9 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Lorenzo=20Garc=C3=ADa=20Corti=C3=B1as?=
+ <lgcortinas@gradiant.org>
+Date: Mon, 29 May 2017 10:41:16 +0200
+Subject: [PATCH 2/2] Added log for full carto response on insert query
+
+---
+ .../com/telefonica/iot/cygnus/backends/cartodb/CartoDBBackendImpl.java  | 2 +-
+ .../src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/cygnus-common/src/main/java/com/telefonica/iot/cygnus/backends/cartodb/CartoDBBackendImpl.java b/cygnus-common/src/main/java/com/telefonica/iot/cygnus/backends/cartodb/CartoDBBackendImpl.java
+index 7f215b3..ac97ee4 100644
+--- a/cygnus-common/src/main/java/com/telefonica/iot/cygnus/backends/cartodb/CartoDBBackendImpl.java
++++ b/cygnus-common/src/main/java/com/telefonica/iot/cygnus/backends/cartodb/CartoDBBackendImpl.java
+@@ -116,7 +116,7 @@ public class CartoDBBackendImpl extends HttpBackend implements CartoDBBackend {
+         // check the status
+         if (response.getStatusCode() != 200) {
+             throw new CygnusPersistenceError("The query '" + query + "' could not be executed. CartoDB response: "
+-                    + response.getStatusCode() + " " + response.getReasonPhrase());
++                    + response.getStatusCode() + " " + response/*.getReasonPhrase()*/);
+         } // if
+     } // insert
+     
+diff --git a/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java b/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java
+index 87329ce..b379cb7 100644
+--- a/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java
++++ b/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java
+@@ -616,7 +616,7 @@ public class NGSICartoDBSink extends NGSISink {
+         LOGGER.info("[" + this.getName() + "] Persisting data at NGSICartoDBSink. Schema (" + schema
+                 + "), Table (" + tableName + "), Data (" + rows + ")");
+         
+-        LOGGER.info("Backends: " + backends);
++        LOGGER.info("Backends: " + backends.get(schema));
+         
+         try {
+             ((CartoDBBackendImpl) backends.get(schema)).startTransaction();
+-- 
+2.7.4
+
+
+From 6d2b7953ec359bc0dad07e36c737188a55617557 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Lorenzo=20Garc=C3=ADa=20Corti=C3=B1as?=
+ <lgcortinas@gradiant.org>
+Date: Mon, 29 May 2017 11:11:56 +0200
+Subject: [PATCH 3/3] Added Json get funtion to log.
+
+---
+ .../com/telefonica/iot/cygnus/backends/cartodb/CartoDBBackendImpl.java  | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/cygnus-common/src/main/java/com/telefonica/iot/cygnus/backends/cartodb/CartoDBBackendImpl.java b/cygnus-common/src/main/java/com/telefonica/iot/cygnus/backends/cartodb/CartoDBBackendImpl.java
+index ac97ee4..d91340e 100644
+--- a/cygnus-common/src/main/java/com/telefonica/iot/cygnus/backends/cartodb/CartoDBBackendImpl.java
++++ b/cygnus-common/src/main/java/com/telefonica/iot/cygnus/backends/cartodb/CartoDBBackendImpl.java
+@@ -116,7 +116,7 @@ public class CartoDBBackendImpl extends HttpBackend implements CartoDBBackend {
+         // check the status
+         if (response.getStatusCode() != 200) {
+             throw new CygnusPersistenceError("The query '" + query + "' could not be executed. CartoDB response: "
+-                    + response.getStatusCode() + " " + response/*.getReasonPhrase()*/);
++                    + response.getStatusCode() + " " + response.getJsonObject()/*.getReasonPhrase()*/);
+         } // if
+     } // insert
+     
+-- 
+2.7.4
+
+
+From 2a7f33a3b5eced5580d00042774759bbdc8ad018 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Lorenzo=20Garc=C3=ADa=20Corti=C3=B1as?=
+ <lgcortinas@gradiant.org>
+Date: Mon, 29 May 2017 16:05:34 +0200
+Subject: [PATCH 4/4] Added type log on insert.
+
+---
+ .../src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java  | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java b/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java
+index b379cb7..8422398 100644
+--- a/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java
++++ b/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java
+@@ -589,7 +589,7 @@ public class NGSICartoDBSink extends NGSISink {
+                 String attrType = contextAttribute.getType();
+                 String attrValue = contextAttribute.getContextValue(false);
+                 String attrMetadata = contextAttribute.getContextMetadata();
+-                LOGGER.debug("[" + getName() + "] Processing context attribute (name=" + attrName + ", type="
++                LOGGER.info("[" + getName() + "] Processing context attribute (name=" + attrName + ", type="
+                         + attrType + ")");
+                 ImmutablePair<String, Boolean> location = NGSIUtils.getGeometry(attrValue, attrType, attrMetadata,
+                         swapCoordinates);
+-- 
+2.7.4
+
+
+From 06f29700d3067a5d395fcc05041b85a1f4f6dcf3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Lorenzo=20Garc=C3=ADa=20Corti=C3=B1as?=
+ <lgcortinas@gradiant.org>
+Date: Tue, 30 May 2017 10:38:44 +0200
+Subject: [PATCH 5/5] Added ST_SetSRID to GeomFromGeoJSON.
+
+---
+ .../src/main/java/com/telefonica/iot/cygnus/utils/NGSIUtils.java        | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/utils/NGSIUtils.java b/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/utils/NGSIUtils.java
+index d4cac82..fd8d427 100644
+--- a/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/utils/NGSIUtils.java
++++ b/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/utils/NGSIUtils.java
+@@ -107,7 +107,7 @@ public final class NGSIUtils {
+         } // if
+         
+         if (attrType.equals("geo:json")) {
+-            return new ImmutablePair("ST_GeomFromGeoJSON('" + attrValue + "')", true);
++            return new ImmutablePair("ST_SetSRID(ST_GeomFromGeoJSON('" + attrValue + "'), 4326)", true);
+         } // if
+         
+         // The type was not 'geo:point' nor 'geo:json', thus try the metadata
+-- 
+2.7.4

@@ -1,0 +1,130 @@
+From 08caf97387fa108f1186e8fb31910a7526a82be8 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Lorenzo=20Garc=C3=ADa=20Corti=C3=B1as?=
+ <lgcortinas@gradiant.org>
+Date: Thu, 20 Jul 2017 11:54:15 +0200
+Subject: [PATCH] Fixed array format between Orion and CartoDB.
+
+---
+ .../iot/cygnus/sinks/NGSICartoDBSink.java          | 25 +++++++++++++------
+ .../com/telefonica/iot/cygnus/utils/NGSIUtils.java | 29 +++++++++++++++++++++-
+ 2 files changed, 45 insertions(+), 9 deletions(-)
+
+diff --git a/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java b/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java
+index b045269..8453dd7 100644
+--- a/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java
++++ b/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/sinks/NGSICartoDBSink.java
+@@ -472,9 +472,9 @@ public class NGSICartoDBSink extends NGSISink {
+                     ArrayList<String> values = (ArrayList<String>) aggregation.get(field);
+                     String value = values.get(i);
+                     
+-                    if (!field.equals("the_geom")) {
++                    /*if (!field.equals("the_geom")) {
+                         value = "'" + value + "'";
+-                    } // if
++                    } // if*/
+                     
+                     if (first) {
+                         rows += value;
+@@ -579,10 +579,10 @@ public class NGSICartoDBSink extends NGSISink {
+                 return;
+             } // if
+             
+-            aggregation.get(NGSIConstants.RECV_TIME).add(recvTime);
+-            aggregation.get(NGSIConstants.FIWARE_SERVICE_PATH).add(servicePathForData);
+-            aggregation.get(NGSIConstants.ENTITY_ID).add(entityId);
+-            aggregation.get(NGSIConstants.ENTITY_TYPE).add(entityType);
++            aggregation.get(NGSIConstants.RECV_TIME).add("'" + recvTime + "'");
++            aggregation.get(NGSIConstants.FIWARE_SERVICE_PATH).add("'" + servicePathForData + "'");
++            aggregation.get(NGSIConstants.ENTITY_ID).add("'" + entityId + "'");
++            aggregation.get(NGSIConstants.ENTITY_TYPE).add("'" + entityType + "'");
+             
+             for (ContextAttribute contextAttribute : contextAttributes) {
+                 String attrName = contextAttribute.getName();
+@@ -593,12 +593,16 @@ public class NGSICartoDBSink extends NGSISink {
+                         + attrType + ")");
+                 ImmutablePair<String, Boolean> location = NGSIUtils.getGeometry(attrValue, attrType, attrMetadata,
+                         swapCoordinates);
++                ImmutablePair<String, Boolean> array = NGSIUtils.getArray(attrValue, attrType, attrMetadata);
+                 
+                 if (location.right) {
+                     aggregation.get(NGSIConstants.CARTO_DB_THE_GEOM).add(location.getLeft());
++                } else if (array.right) {
++                    aggregation.get(attrName).add(array.getLeft());
++                    aggregation.get(attrName + "_md").add("'" + attrMetadata + "'");
+                 } else {
+-                    aggregation.get(attrName).add(attrValue);
+-                    aggregation.get(attrName + "_md").add(attrMetadata);
++                    aggregation.get(attrName).add("'" + attrValue + "'");
++                    aggregation.get(attrName + "_md").add("'" + attrMetadata + "'");
+                 } // if else
+             } // for
+         } // aggregate
+@@ -790,6 +794,7 @@ public class NGSICartoDBSink extends NGSISink {
+             String attrMetadata = ca.getContextMetadata();
+             ImmutablePair<String, Boolean> location = NGSIUtils.getGeometry(attrValue, attrType, attrMetadata,
+                     swapCoordinates);
++            ImmutablePair<String, Boolean> array = NGSIUtils.getArray(attrValue, attrType, attrMetadata);
+             String set;
+             String field;
+             String row;
+@@ -798,6 +803,10 @@ public class NGSICartoDBSink extends NGSISink {
+                 set = NGSIConstants.CARTO_DB_THE_GEOM + "=" + location.left;
+                 field = NGSIConstants.CARTO_DB_THE_GEOM;
+                 row = location.left;
++            } else if (array.right) {
++                set = ca.getName() + "=" + array.left + "," + ca.getName() + "_md= '" + ca.getContextMetadata() + "'";
++                field = ca.getName() + "," + ca.getName() + "_md";
++                row = array.left + ",'" + ca.getContextMetadata() + "'";
+             } else {
+                 set = ca.getName() + "='" + ca.getContextValue(false) + "',"
+                         + ca.getName() + "_md='" + ca.getContextMetadata() + "'";
+diff --git a/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/utils/NGSIUtils.java b/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/utils/NGSIUtils.java
+index d4cac82..9c42c69 100644
+--- a/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/utils/NGSIUtils.java
++++ b/cygnus-ngsi/src/main/java/com/telefonica/iot/cygnus/utils/NGSIUtils.java
+@@ -107,7 +107,7 @@ public final class NGSIUtils {
+         } // if
+         
+         if (attrType.equals("geo:json")) {
+-            return new ImmutablePair("ST_GeomFromGeoJSON('" + attrValue + "')", true);
++            return new ImmutablePair("ST_SetSRID(ST_GeomFromGeoJSON('" + attrValue + "'), 4326)", true);
+         } // if
+         
+         // The type was not 'geo:point' nor 'geo:json', thus try the metadata
+@@ -143,5 +143,32 @@ public final class NGSIUtils {
+         // The attribute was not related to a geolocation
+         return new ImmutablePair(attrValue, false);
+     } // getGeometry
++
++    /**
++     * Gets a geometry value, ready for insertion in CartoDB, given a NGSI attribute value and its metadata.
++     * If the attribute is not geo-related, it is returned as it is.
++     * @param attrValue
++     * @param attrType
++     * @param metadata
++     * @return The array value, ready for insertion in CartoDB, or the value as it is
++     */
++    public static ImmutablePair<String, Boolean> getArray(String attrValue, String attrType, String metadata) {
++        // Check the attribute type
++        if (attrType.equals("StructuredValue")) {
++            // Remove spaces to check attribute structure
++            String trimmed = attrValue.replaceAll("\\s+","");
++            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
++                if (trimmed.length() > 2) {
++                    return new ImmutablePair("ARRAY" + trimmed.replaceAll("\"", "'"), true);
++                } else {
++                    return new ImmutablePair(null, true);
++                }
++            } else {
++                return new ImmutablePair(attrValue, false);
++            }
++        } else {
++            return new ImmutablePair(attrValue, false);
++        }        
++    } // getArray
+         
+ } // NGSIUtils
+-- 
+2.7.4
+
+
